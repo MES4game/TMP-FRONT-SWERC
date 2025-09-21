@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { SmartRef } from "@/shared/models/common/hook.model";
 
 export function useSmartRef<T>(value: T): SmartRef<T> {
@@ -6,6 +6,6 @@ export function useSmartRef<T>(value: T): SmartRef<T> {
 }
 
 export function useReRender(): (..._args: unknown[]) => void {
-    const [_, reRender] = useState(false);
-    return (..._args: unknown[]) => { reRender((prev) => { return !prev; }) };
+    const [, reRender] = useState(0);
+    return useCallback((..._args: unknown[]) => { reRender((prev) => { return (prev + 1)  & (1024 - 1); }); }, []);
 }

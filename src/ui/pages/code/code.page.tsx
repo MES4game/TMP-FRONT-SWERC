@@ -1,25 +1,24 @@
-import { FC, ReactNode, useEffect } from "react";
+import { FC, ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSmartRef } from "@/shared/utils/common/hook.util";
+import { useGeneralVars } from "@/shared/contexts/common/general.context";
 import { mapUserScore, UserScore } from "@/shared/models/score.model";
+import { getProblemAll } from "@/api/problem.api";
+import { getScoreByUserId } from "@/api/score.api";
 import TableComp from "@/ui/components/common/table.component";
 import "@/ui/pages/code/code.page.css";
-import { getUserAll } from "@/api/user.api";
-import { getScoreByUserId } from "@/api/score.api";
-import { useGeneralVars } from "@/shared/contexts/common/general.context";
-import { useSmartRef } from "@/shared/utils/common/hook.util";
-import { getProblemAll } from "@/api/problem.api";
-
-const USERS = await getUserAll();
-const PROBLEMS = await getProblemAll();
+import { Problem } from "@/shared/models/problem.model";
 
 const CodePage: FC = (): ReactNode => {
     const { user } = useGeneralVars();
-    const score_ref = useSmartRef([].map(mapUserScore));
+    const score_ref = useSmartRef<UserScore[]>([]);
+    const [problems, setProblems] = useState<Problem[]>([]);
 
     function displayRowUser(score: UserScore, index: number): ReactNode {
+        console.log(score);
         return (
             <tr key={index}>
-                <td>{(USERS.find((value) => { return value.id === score.user_id; }))?.pseudo}</td>
+                <td>{score.pseudo}</td>
                 <td>{score.total}</td>
                 {...score.points.map((val, idx) => { return <td key={idx}>{val}</td>; })}
             </tr>
@@ -28,6 +27,10 @@ const CodePage: FC = (): ReactNode => {
 
     useEffect(() => {
         console.log("Loaded: CodePage");
+
+        getProblemAll()
+            .then(setProblems)
+            .catch(alert);
 
         getScoreByUserId(user.current.id)
             .then((value) => { score_ref.current = [value].map(mapUserScore); })
@@ -45,8 +48,7 @@ const CodePage: FC = (): ReactNode => {
             heads={[
                 { key: 'user_id', item: <></> },
                 { key: 'total', item: <p>Total Points</p> },
-                ...
-                    PROBLEMS
+                ...problems
                     .sort((a, b) => { return a.id - b.id; })
                     .map((value) => {
                         return {

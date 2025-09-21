@@ -3,11 +3,14 @@ import { SmartRef } from "@/shared/models/common/hook.model";
 import { useSmartRef } from "@/shared/utils/common/hook.util";
 import { mapUser, User } from "@/shared/models/user.model";
 import { getSelf } from "@/api/user.api";
+import { Status } from "@/shared/models/status.model";
+import { getStatusAll } from "@/api/status.api";
 
 interface GeneralVarsType {
     token: SmartRef<string>;
     lang: SmartRef<string>;
     user: SmartRef<User>;
+    statuses: SmartRef<Status[]>;
 }
 
 const GeneralVarsContext = createContext<GeneralVarsType | undefined>(undefined);
@@ -21,17 +24,30 @@ export const GeneralVarsProvider: FC<GeneralVarsProviderProps> = (props: General
         token: useSmartRef(""),
         lang:  useSmartRef("en"),
         user:  useSmartRef(mapUser({})),
+        statuses: useSmartRef<Status[]>([]),
     };
-
-    context_value.token.subscribe((_, curr) => { sessionStorage.setItem('token', curr); });
-    context_value.lang.subscribe((_, curr) => { localStorage.setItem('lang', curr); });
-    context_value.token.subscribe((_, _curr) => { void (async () => { context_value.user.current = mapUser(await getSelf()); })(); });
 
     useEffect(() => {
         console.log("Loaded: GeneralVarsProvider");
 
+        const unsubscribers: (() => void)[] = [];
+
+        unsubscribers.push(context_value.token.subscribe((_, curr) => { sessionStorage.setItem('token', curr); }));
+        unsubscribers.push(context_value.lang.subscribe((_, curr) => { localStorage.setItem('lang', curr); }));
+        unsubscribers.push(context_value.token.subscribe((_, curr) => {
+            getSelf(curr)
+                .then((value) => { context_value.user.current = value; })
+                .catch(alert);
+        }, true));
+
         context_value.token.current = sessionStorage.getItem('token') ?? "";
         context_value.lang.current = localStorage.getItem('lang') ?? "en";
+
+        getStatusAll()
+            .then((value) => { context_value.statuses.current = value })
+            .catch(alert);
+
+        return () => { unsubscribers.forEach((fn) => { fn(); }) };
     }, []);
 
     useEffect(() => {

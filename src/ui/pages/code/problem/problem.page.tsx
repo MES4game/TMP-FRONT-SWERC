@@ -1,15 +1,14 @@
-import { FC, ReactNode, useEffect, useState } from "react";
+import { FC, ReactNode, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { fetchGet, fetchPost } from "@/api/common.api";
-import { useGeneralVars } from "@/shared/contexts/common/general.context";
 import { unknownToString } from "@/shared/utils/common/convert.util";
-import { mapExample, mapProblem } from "@/shared/models/problem.model";
+import { useGeneralVars } from "@/shared/contexts/common/general.context";
+import { Submit } from "@/shared/models/submit.model";
+import { Example, mapProblem } from "@/shared/models/problem.model";
 import { getExampleByProblemId, getProblemById } from "@/api/problem.api";
-import { mapSubmit } from "@/shared/models/submit.model";
-import { getSubmitByProblemId } from "@/api/submit.api";
+import { downloadSubmit, getSubmitByProblemId, postSubmit } from "@/api/submit.api";
 import "katex/dist/katex.min.css";
 import "@/ui/pages/code/problem/problem.page.css";
 
@@ -17,20 +16,20 @@ const ProblemPage: FC = (): ReactNode => {
     const { token, user } = useGeneralVars();
     const { id } = useParams<{ id: string }>();
     const [problem, setProblem] = useState(mapProblem({}));
-    const [examples, setExamples] = useState([].map(mapExample));
-    const [submits, setSubmits] = useState([].map(mapSubmit));
+    const [examples, setExamples] = useState<Example[]>([]);
+    const [submits, setSubmits] = useState<Submit[]>([]);
     const [download_response, setDownloadResponse] = useState<Response | undefined>(undefined);
+    const code = useRef<HTMLTextAreaElement | null>(null);
 
     function handleSubmit() {
-        alert('Submit sent');
-        const code = (document.getElementById('code') as HTMLTextAreaElement).value;
-        fetchPost(token.current, `/submit/post/${id?.toString() ?? ""}`, { code: JSON.stringify(code) })
+        alert('Sending submit...');
+        postSubmit(token.current, Number(id), code.current?.value ?? "")
             .catch((error: unknown) => { alert(`Submit failed: ${unknownToString(error)}`) });
     }
 
     function handleDownload(submit_id: number) {
         alert(`Downloading submit ${submit_id.toString()}...`);
-        void fetchGet(token.current, `/submit/getById/${submit_id.toString()}`, {})
+        downloadSubmit(token.current, submit_id)
             .then(setDownloadResponse)
             .catch((error: unknown) => { alert(`Download failed : ${unknownToString(error)}`) });
     }
@@ -38,17 +37,18 @@ const ProblemPage: FC = (): ReactNode => {
     useEffect(() => {
         if (!download_response?.ok) return;
 
-        void (async () => {
-            const blob = await download_response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "code.py";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        })();
+        download_response.blob()
+            .then((blob) => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "code.py";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(alert);
     }, [download_response]);
 
     useEffect(() => {
@@ -72,7 +72,7 @@ const ProblemPage: FC = (): ReactNode => {
     });
 
     return (
-        problem
+        problem.id > 0
         ? (
             <div className="max-w-2xl mx-auto p-6">
                 <h1 className="text-2xl font-bold mb-4">
@@ -116,7 +116,7 @@ const ProblemPage: FC = (): ReactNode => {
                 <section className='submit'>
                     <div className='submit-container'>
                         <label htmlFor='code'>Code</label>
-                        <textarea id='code' name='code' rows={10} cols={50}></textarea>
+                        <textarea ref={code} name='code' rows={10} cols={50}></textarea>
                         <button onClick={handleSubmit}>Submit</button>
                     </div>
                     <div className='submit-history'>

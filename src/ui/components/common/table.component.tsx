@@ -36,10 +36,14 @@ const TableComp = <T,>(props: TableCompProps<T>): ReactNode => {
         sortElements();
     }
 
-    props.elements.subscribe(reRender);
-
     useEffect(() => {
         console.log("Loaded: TableComp");
+
+        const unsubscribers: (() => void)[] = [];
+
+        unsubscribers.push(props.elements.subscribe(reRender));
+
+        return () => { unsubscribers.forEach((fn) => { fn(); }) };
     }, []);
 
     useEffect(() => {

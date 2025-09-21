@@ -6,8 +6,8 @@ const USERSSCORES = Array.from(
     { length: 5 },
     (_, idx) => {
         return {
-            id: idx,
-            pseudo: NAMES[idx],
+            user_id: idx,
+            pseudo: NAMES[idx - 1],
             total: 0,
             points: Array.from({ length: 6 }, () => { return getRandomNumber(0, 128); }),
         };
@@ -20,5 +20,5 @@ export async function getScoreboard(): Promise<UserScore[]> {
 }
 
 export async function getScoreByUserId(id: number): Promise<UserScore> {
-    return mapUserScore(USERSSCORES.filter((value) => { return value.id === id; }));
+    return mapUserScore(USERSSCORES.find((value) => { return value.user_id === id; }));
 }
